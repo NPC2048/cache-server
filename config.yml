@@ -1,0 +1,7 @@
+# hash 服务器地址
+hash-server-host: http://localhost:8762
+# cache 服务器地址运行端口
+port: 80
+# memcached 服务器地址
+memcached-host:
+  - ec2-52-207-207-8.compute-1.amazonaws.com:11211
