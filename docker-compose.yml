@@ -1,0 +1,13 @@
+version: "2"
+services:
+  cache-server:
+    image: alpine
+    container_name: cace-server
+    network_mode: bridge
+    working_dir: /root
+    ports:
+      - 8080:8080
+    volumes:
+      - ./cache-server:/root/cache-server
+      - ./config.yml:/root/config.yml
+    command: chmod +x /root/cache-server

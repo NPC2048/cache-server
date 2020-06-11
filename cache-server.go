@@ -77,45 +77,56 @@ func initMemcached() {
 
 // hash 缓存
 func HashCacheServer(writer http.ResponseWriter, request *http.Request) {
-	go func() {
-		// 解析请求参数
-		input := url.QueryEscape(request.FormValue("input"))
-		// md5 key
-		md5Hash := md5.Sum([]byte(input))
-		key := hex.EncodeToString(md5Hash[:])
-		// 判断 input 是否已存在
-		item, _ := mc.Get(key)
-
-		if item != nil {
-			// 直接返回
-			_, _ = writer.Write(item.Value)
-			return
-		}
-		//请求 hash-server
-		resp, _ := http.Get(Config.HashServerHost + "/calc?input=" + input)
+	// 解析请求参数
+	input := request.FormValue("input")
+	// md5 key
+	md5Hash := md5.Sum([]byte(input))
+	key := hex.EncodeToString(md5Hash[:])
+	// 判断 input 是否已存在
+	item, err := mc.Get(key)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if item != nil {
+		// 直接返回
+		_, _ = writer.Write(item.Value)
+		return
+	}
+	//请求 hash-server
+	resp, err := http.Get(Config.HashServerHost + "/calc?input=" + url.QueryEscape(input))
+	if err != nil {
+		fmt.Println(err)
+	} else {
 		defer resp.Body.Close()
 		body, _ := ioutil.ReadAll(resp.Body)
 		_, _ = writer.Write(body)
 		// 缓存 input
 		_ = mc.Set(&memcache.Item{Key: key, Value: body})
-	}()
+	}
 }
 
 // 其他请求，按照请求路径, 请求方法, 请求 header, 请求参数, 请求内容原封不动的转发至目标服务器
 func Proxy(writer http.ResponseWriter, request *http.Request) {
-	go func() {
-		// 请求转发
-		targetResponse, _ := Forward(request)
-		// 设置 response header 信息
-		defer targetResponse.Body.Close()
-		for key, val := range targetResponse.Header {
-			for _, value := range val {
-				writer.Header().Add(key, value)
-			}
+	// 请求转发
+	targetResponse, _ := Forward(request)
+	// 设置 response header 信息
+	defer targetResponse.Body.Close()
+	for key, val := range targetResponse.Header {
+		for _, value := range val {
+			writer.Header().Add(key, value)
 		}
-		data, _ := ioutil.ReadAll(targetResponse.Body)
-		_, _ = writer.Write(data)
-	}()
+	}
+	data, _ := ioutil.ReadAll(targetResponse.Body)
+	_, _ = writer.Write(data)
+}
+
+func main() {
+	wg := sync.WaitGroup{}
+	fmt.Println("Begin start cache-server...")
+	_ = StartHttpServer()
+	fmt.Println("Run Done.")
+	wg.Add(1)
+	wg.Wait()
 }
 
 func StartHttpServer() *http.Server {
@@ -126,22 +137,13 @@ func StartHttpServer() *http.Server {
 	http.HandleFunc("/", Proxy)
 	go func() {
 		if err := serve.ListenAndServe(); err != nil {
-			fmt.Println(err)
+			fmt.Println(err.Error())
 			// 关闭服务器
 			_ = serve.Shutdown(nil)
 			os.Exit(-2)
 		}
 	}()
 	return serve
-}
-
-func main() {
-	wg := sync.WaitGroup{}
-	fmt.Println("Begin start cache-server...")
-	_ = StartHttpServer()
-	fmt.Println("Run Done.")
-	wg.Add(1)
-	wg.Wait()
 }
 
 // 转发方法
