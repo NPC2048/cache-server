@@ -93,7 +93,7 @@ func HashCacheServer(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	//请求 hash-server
-	resp, err := http.Get(Config.HashServerHost + "/calc?input=" + url.QueryEscape(input))
+	resp, err := Forward(request)
 	if err != nil {
 		fmt.Println(err)
 	} else {
