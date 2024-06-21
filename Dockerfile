@@ -1,4 +1,4 @@
-FROM amazonlinux
+FROM amazonlinux:2023.4.20240611.0
 WORKDIR /root
 ADD cache-server /root
 ADD config.yml /root
